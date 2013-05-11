@@ -252,6 +252,15 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
   int w = rc.right - rc.left;
   int h = rc.bottom - rc.top;
 
+  int nInnerX = 11;
+  int nInnerY = 20;
+  int nInnerW = w - 11 - 8;
+  int nInnerH = h - 20 - 14;
+
+  // this makes it look less brickwalled
+  nInnerY += 2; 
+  nInnerH -= 4;
+
   switch (uMsg)
   {
     case WM_TIMER:
@@ -306,15 +315,6 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
           BitBlt( hdcMem, 125 + i * 25, h - 14, 25, 14, hdcSkin, 127, 72, SRCCOPY );
         BitBlt( hdcMem, w - 125, h - 14, 125, 14, hdcSkin, 0, 57, SRCCOPY );
 
-        int nInnerX = 11;
-        int nInnerY = 20;
-        int nInnerW = w - 11 - 8;
-        int nInnerH = h - 20 - 14;
-
-        // this makes it look less brickwalled
-        nInnerY += 2; 
-        nInnerH -= 4;
-
         SelectObject(hdcMem, GetStockObject(DC_PEN));
         for (int i=0; i<nInnerW; i++)
         {
@@ -342,10 +342,6 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       } break;
     case WM_LBUTTONUP:
       {
-        RECT rc;
-        GetClientRect(hWnd,&rc);
-        int w = rc.right - rc.left;
-
         unsigned short xPos = GET_X_LPARAM(lParam); 
         unsigned short yPos = GET_Y_LPARAM(lParam); 
 
@@ -353,7 +349,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (nSongLen != -1)
         {
-          unsigned int ms = xPos * nSongLen / w;
+          unsigned int ms = MulDiv(xPos - nInnerX,nSongLen,nInnerW);
           SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, ms, IPC_JUMPTOTIME);
         }
 
