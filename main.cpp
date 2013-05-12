@@ -42,6 +42,10 @@ bool bIsPlaying = false;
 
 HBITMAP bmpSkin = NULL;
 
+COLORREF clrBackground = RGB(0,0,0);
+COLORREF clrWaveform = RGB(0,255,0);
+COLORREF clrWaveformPlayed = RGB(0,127,0);
+
 void StartProcessingFile( char * szFn )
 {
   bIsPlaying = false;
@@ -190,11 +194,35 @@ void ProcessSkinChange()
   HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
   if (wcslen(szBuffer))
   {
-    PathAppendW(szBuffer,L"gen.bmp");
-    bmpSkin = (HBITMAP)LoadImageW(NULL,szBuffer,IMAGE_BITMAP,NULL,NULL,LR_LOADFROMFILE);
+    WCHAR szBufferFile[MAX_PATH];
+    CopyMemory(szBufferFile,szBuffer,sizeof(WCHAR) * MAX_PATH);
+    PathAppendW(szBufferFile,L"gen.bmp");
+    bmpSkin = (HBITMAP)LoadImageW(NULL,szBufferFile,IMAGE_BITMAP,NULL,NULL,LR_LOADFROMFILE);
+
+    CopyMemory(szBufferFile,szBuffer,sizeof(WCHAR) * MAX_PATH);
+    PathAppendW(szBufferFile,L"pledit.txt");
+
+    WCHAR sz[20];
+    unsigned int r = 0, g = 0, b = 0;
+    GetPrivateProfileStringW(L"Text",L"NormalBG",L"#000000",sz,20,szBufferFile);
+    swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
+    clrBackground = RGB(r,g,b);
+
+    GetPrivateProfileStringW(L"Text",L"Normal",L"#00ff00",sz,20,szBufferFile);
+    swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
+    clrWaveform = RGB(r,g,b);
+
+    GetPrivateProfileStringW(L"Text",L"Current",L"#008000",sz,20,szBufferFile);
+    swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
+    clrWaveformPlayed = RGB(r,g,b);
+
   }
   else
   {
+    clrBackground = RGB(0,0,0);
+    clrWaveform = RGB(0,255,0);
+    clrWaveformPlayed = RGB(0,127,0);
+
     bmpSkin = LoadBitmap(hInstance,MAKEINTRESOURCE(250));
   }
 }
@@ -322,7 +350,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hdcSkin = CreateCompatibleDC( NULL );
         HBITMAP hbmSkinOld = (HBITMAP)SelectObject( hdcSkin, bmpSkin );
 
-        FillRect(hdcMem,&rc,CreateSolidBrush(0));
+        FillRect(hdcMem,&rc,CreateSolidBrush(clrBackground));
 
         int y = true ? 0 : 26;
         BitBlt( hdcMem, 0, 0, 25, 20, hdcSkin, 0, y, SRCCOPY );
@@ -347,9 +375,9 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
           COLORREF c = 0;
           int nBufLoc = i * SAMPLE_BUFFER_SIZE / nInnerW;
           if (nBufLoc < nBufPos)
-            c = SetDCPenColor(hdcMem, RGB(0,127,0));
+            c = SetDCPenColor(hdcMem, clrWaveformPlayed);
           else
-            c = SetDCPenColor(hdcMem, RGB(0,255,0));
+            c = SetDCPenColor(hdcMem, clrWaveform);
           unsigned short nSample = pSampleBuffer[ nBufLoc ];
           unsigned short sh = nSample * nInnerH / 32767;
           MoveToEx(hdcMem,nInnerX + i,nInnerY + (nInnerH - sh) / 2,NULL);

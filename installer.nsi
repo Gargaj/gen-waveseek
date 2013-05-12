@@ -15,10 +15,10 @@
 ; !include "Sections.nsh"
  
 ; common defines for a generic DrO installer :o)
-!define VERSION "1.0"
-!define ALT_VER "1_0"
+!define /date VERSION "%Y-%m-%d"
+!define /date ALT_VER "%Y-%m-%d"
 !define PLUG "Waveform Seek"
-!define PLUG_ALT "Waveform Seek"
+!define PLUG_ALT "gen_waveseek"
 !define PLUG_FILE "gen_waveseek"
  
 ; use lzma compression
@@ -28,10 +28,10 @@
 Name "${PLUG} v${VERSION}"
  
 ; The file to write based on the filename and version
-OutFile "${PLUG_ALT}_v${ALT_VER}.exe"
+; OutFile "${PLUG_ALT}_${ALT_VER}.exe"
 ; you could alter it to output you plugin installers into a common location
 ; to make it easier to maintain them
-; OutFile "../_Installers/${PLUG_ALT}_v${ALT_VER}.exe"
+OutFile "_Installers/${PLUG_ALT}_${ALT_VER}.exe"
  
 ; The default installation directory
 InstallDir $PROGRAMFILES\Winamp
