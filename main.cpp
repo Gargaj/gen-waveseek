@@ -49,6 +49,8 @@ COLORREF clrWaveformPlayed = RGB(0,127,0);
 
 void PluginConfig();
 
+bool bIsModernSkin = false;
+
 void StartProcessingFile( char * szFn )
 {
   nBufferPointer = 0;
@@ -191,6 +193,7 @@ void ProcessSkinChange()
   if (bmpSkin)
   {
     DeleteObject(bmpSkin);
+    bmpSkin = NULL;
   }
 
   WCHAR szBuffer[MAX_PATH];
@@ -204,31 +207,40 @@ void ProcessSkinChange()
     PathAppendW(szBufferFile,L"gen.bmp");
     bmpSkin = (HBITMAP)LoadImageW(NULL,szBufferFile,IMAGE_BITMAP,NULL,NULL,LR_LOADFROMFILE);
 
-    CopyMemory(szBufferFile,szBuffer,sizeof(WCHAR) * MAX_PATH);
-    PathAppendW(szBufferFile,L"pledit.txt");
+    bIsModernSkin = true;
+    if (bmpSkin)
+    {
+      bIsModernSkin = false;
+      CopyMemory(szBufferFile,szBuffer,sizeof(WCHAR) * MAX_PATH);
+      PathAppendW(szBufferFile,L"pledit.txt");
 
-    WCHAR sz[20];
-    unsigned int r = 0, g = 0, b = 0;
-    GetPrivateProfileStringW(L"Text",L"NormalBG",L"#000000",sz,20,szBufferFile);
-    swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
-    clrBackground = RGB(r,g,b);
+      WCHAR sz[20];
+      unsigned int r = 0, g = 0, b = 0;
+      GetPrivateProfileStringW(L"Text",L"NormalBG",L"#000000",sz,20,szBufferFile);
+      swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
+      clrBackground = RGB(r,g,b);
 
-    GetPrivateProfileStringW(L"Text",L"Normal",L"#00ff00",sz,20,szBufferFile);
-    swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
-    clrWaveform = RGB(r,g,b);
+      GetPrivateProfileStringW(L"Text",L"Normal",L"#00ff00",sz,20,szBufferFile);
+      swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
+      clrWaveform = RGB(r,g,b);
 
-    GetPrivateProfileStringW(L"Text",L"Current",L"#008000",sz,20,szBufferFile);
-    swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
-    clrWaveformPlayed = RGB(r,g,b);
-
+      GetPrivateProfileStringW(L"Text",L"Current",L"#008000",sz,20,szBufferFile);
+      swscanf(sz,L"#%2X%2X%2X",&r,&g,&b);
+      clrWaveformPlayed = RGB(r,g,b);
+    }
   }
-  else
+  
+  if (!bmpSkin)
   {
     clrBackground = RGB(0,0,0);
     clrWaveform = RGB(0,255,0);
     clrWaveformPlayed = RGB(0,127,0);
 
     bmpSkin = LoadBitmap(hInstance,MAKEINTRESOURCE(250));
+  }
+  if (bIsModernSkin)
+  {
+    SetWindowPos( hWndWaveseek, NULL, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
   }
 }
 
@@ -238,6 +250,10 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
   {
   case WM_WA_IPC:
     {
+//       WCHAR sz[1024];
+//       _snwprintf(sz,1024,L"IPC: uMsg: %8d - wParam: %08X - lParam: %08X\n",uMsg,wParam,lParam);
+//       OutputDebugStringW(sz);
+
       if(lParam == IPC_PLAYING_FILE)
       {
         if (pModule)
@@ -296,7 +312,8 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
       unsigned short xPos = (int)(short) LOWORD(lParam);   // horizontal position 
       unsigned short yPos = (int)(short) HIWORD(lParam);   // vertical position 
 
-      SetWindowPos( hWndWaveseek, NULL, xPos, yPos - 100, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
+      if (!bIsModernSkin)
+        SetWindowPos( hWndWaveseek, NULL, xPos, yPos - 100, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
     } break;
   }
   return CallWindowProc(lpWndProcOld,hWnd,uMsg,wParam,lParam);
@@ -329,7 +346,6 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (wParam == TIMER_ID)
         {
           InvalidateRect(hWnd,NULL,FALSE);
-          //SetTimer( hWndWaveseek, TIMER_ID, TIMER_FREQ, NULL );
         }
       } break;
     case WM_WA_MPEG_EOF:
