@@ -84,8 +84,7 @@
       <AdditionalDependencies>Shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(TargetPath) $(ProjectDir)
-"$(ProgramFiles)\NSIS\Unicode\makensis.exe" installer.nsi</Command>
+      <Command>"$(ProgramFiles)\NSIS\Unicode\makensis.exe" installer.nsi</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -94,6 +93,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gen_waveseek.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="gen_waveseek.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
