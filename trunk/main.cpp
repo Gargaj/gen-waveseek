@@ -177,6 +177,28 @@ void FinishProcessingFile()
   hDLL = NULL;
 }
 
+void ProcessSkinChange()
+{
+  if (bmpSkin)
+  {
+    DeleteObject(bmpSkin);
+  }
+
+  WCHAR szBuffer[MAX_PATH];
+  SendMessage(pPluginDescription.hwndParent, WM_WA_IPC, (WPARAM)szBuffer, IPC_GETSKINW);
+
+  HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
+  if (wcslen(szBuffer))
+  {
+    PathAppendW(szBuffer,L"gen.bmp");
+    bmpSkin = (HBITMAP)LoadImageW(NULL,szBuffer,IMAGE_BITMAP,NULL,NULL,LR_LOADFROMFILE);
+  }
+  else
+  {
+    bmpSkin = LoadBitmap(hInstance,MAKEINTRESOURCE(250));
+  }
+}
+
 LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   switch (uMsg)
@@ -228,6 +250,10 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
           }
         }
 
+      } 
+      else if (lParam == IPC_SKIN_CHANGED)
+      {
+        ProcessSkinChange();
       }
     } break;
   case WM_MOVE:
@@ -395,11 +421,7 @@ int PluginInit()
   hWndWaveseek = CreateWindowExA(WS_EX_TOOLWINDOW,"waveseekwindow","MyWindow", WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_VISIBLE | WS_POPUP,rc.left,rc.top - 100,825,100,pPluginDescription.hwndParent,0,pPluginDescription.hDllInstance,0);
   SetTimer( hWndWaveseek, TIMER_ID, TIMER_FREQ, NULL );
 
-  WCHAR szBuffer[MAX_PATH];
-  SendMessage(pPluginDescription.hwndParent, WM_WA_IPC, (WPARAM)szBuffer, IPC_GETSKINW);
-
-  HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
-  bmpSkin = LoadBitmap(hInstance,MAKEINTRESOURCE(250));
+  ProcessSkinChange();
 
   return 0;
 }
