@@ -99,10 +99,11 @@ Section ""
   SetOverwrite on
   SetOutPath "$INSTDIR\Plugins"
   ; File to extract
-  File "${PLUG_FILE}.dll"
+  ; File "${PLUG_FILE}.dll"
   ; if you're script is in the project folder then the following file path is
   ; likely to apply otherwise just alter the path as needed
-  ; File "Release\${PLUG_FILE}.dll"
+  File "Release\${PLUG_FILE}.dll"
+  File "${PLUG_FILE}.readme.txt"
   SetOverwrite off
 SectionEnd
  

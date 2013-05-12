@@ -5,6 +5,7 @@
 #include <winamp/IN2.H>
 #include <winamp/gen.h>
 #include <winamp/wa_ipc.h>
+#include "resource.h"
 #include "gen_waveseek.h"
 
 #define WA_DLG_IMPLEMENT
@@ -46,10 +47,14 @@ COLORREF clrBackground = RGB(0,0,0);
 COLORREF clrWaveform = RGB(0,255,0);
 COLORREF clrWaveformPlayed = RGB(0,127,0);
 
+void PluginConfig();
+
 void StartProcessingFile( char * szFn )
 {
+  nBufferPointer = 0;
+  ZeroMemory(pSampleBuffer,SAMPLE_BUFFER_SIZE * sizeof(unsigned short));
+
   bIsPlaying = false;
-  strncpy(szFilename,szFn,MAX_PATH);
   char * szExt = PathFindExtensionA( szFilename );
   if (!szExt) return;
 
@@ -250,7 +255,9 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         nBufferPointer = 0;
         ZeroMemory(pSampleBuffer,SAMPLE_BUFFER_SIZE * sizeof(unsigned short));
 
-        char * szFilename = (char*) wParam;
+        char * szFn = (char*) wParam;
+        strncpy(szFilename,szFn,MAX_PATH);
+
         GetModuleFileNameA( pPluginDescription.hDllInstance, szDLLPath, MAX_PATH );
         PathRemoveFileSpecA( szDLLPath );
 
@@ -419,6 +426,28 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         else if (xPos > w - 15 && yPos > h - 15)
           SendMessage(hWnd, WM_NCLBUTTONDOWN, HTBOTTOMRIGHT, NULL);
       } break;
+    case WM_CONTEXTMENU:
+      {
+        unsigned short xPos = GET_X_LPARAM(lParam); 
+        unsigned short yPos = GET_Y_LPARAM(lParam); 
+        HMENU hMenu = LoadMenu( pPluginDescription.hDllInstance, MAKEINTRESOURCE(IDR_CONTEXTMENU) );
+        HMENU hSubMenu = GetSubMenu( hMenu, 0 );
+        TrackPopupMenu( hSubMenu, NULL, xPos, yPos, NULL, hWnd, NULL );
+      }
+    case WM_COMMAND:
+      {
+        switch (LOWORD(wParam))
+        {
+          case ID_SUBMENU_RERENDER:
+            {
+              StartProcessingFile( szFilename );
+            } break;
+          case ID_SUBMENU_ABOUT:
+            {
+              PluginConfig();
+            } break;
+        }
+      }
   }
   return DefWindowProc(hWnd,uMsg,wParam,lParam);
 }
@@ -456,6 +485,13 @@ int PluginInit()
 
 void PluginConfig()
 {
+  MessageBox( pPluginDescription.hwndParent, 
+    _T("Waveform Seeker version ") _T( __DATE__ ) _T("\n")
+    _T("by Gargaj\n")
+    _T("\n")
+    _T("Updated versions and source available at:\n")
+    _T("http://code.google.com/p/gen-waveseek/\n"),
+    _T("Waveform Seeker"),MB_ICONINFORMATION);
 }
 
 void PluginQuit()
