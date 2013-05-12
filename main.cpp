@@ -357,7 +357,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         HDC hdcSkin = CreateCompatibleDC( NULL );
         HBITMAP hbmSkinOld = (HBITMAP)SelectObject( hdcSkin, bmpSkin );
 
-        FillRect(hdcMem,&rc,CreateSolidBrush(clrBackground));
+        HBRUSH hbrBackground = CreateSolidBrush(clrBackground);
+        FillRect(hdcMem,&rc,hbrBackground);
 
         int y = true ? 0 : 26;
         BitBlt( hdcMem, 0, 0, 25, 20, hdcSkin, 0, y, SRCCOPY );
@@ -391,6 +392,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
           LineTo(hdcMem,nInnerX + i,nInnerY + (nInnerH - sh) / 2 + sh);
         }
         BitBlt( ps.hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, hdcMem, 0, 0, SRCCOPY );
+
+        DeleteObject(hbrBackground);
 
         SelectObject(hdcSkin, hbmSkinOld);
         DeleteDC(hdcSkin);
