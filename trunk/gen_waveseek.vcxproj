@@ -85,7 +85,7 @@
     </Link>
     <PostBuildEvent>
       <Command>copy $(TargetPath) $(ProjectDir)
-"$(ProgramFiles)\NSIS\Unicode\makensisw.exe" installer.nsi</Command>
+"$(ProgramFiles)\NSIS\Unicode\makensis.exe" installer.nsi</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

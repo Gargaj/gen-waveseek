@@ -22,7 +22,7 @@
 !define PLUG_FILE "gen_waveseek"
  
 ; use lzma compression
-SetCompressor lzma
+;SetCompressor lzma
  
 ; The name of the installer based on the filename and version
 Name "${PLUG} v${VERSION}"
