@@ -70,7 +70,7 @@ void StartProcessingFile( char * szFn )
   strcpy( szTempDLLDestination, szDLLPath );
   PathAppendA( szTempDLLDestination, WAVESEEK_TMP_DLL_FILENAME );
 
-  DeleteFileA( WAVESEEK_TMP_DLL_FILENAME );
+  DeleteFileA( szTempDLLDestination );
 
   WIN32_FIND_DATAA wfd;
   ZeroMemory(&wfd,sizeof(WIN32_FIND_DATAA));
@@ -381,12 +381,16 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         for (int i=0; i<nInnerW; i++)
         {
           COLORREF c = 0;
-          int nBufLoc = i * SAMPLE_BUFFER_SIZE / nInnerW;
-          if (nBufLoc < nBufPos)
+          int nBufLoc0 = (i + 0) * SAMPLE_BUFFER_SIZE / nInnerW;
+          int nBufLoc1 = (i + 1) * SAMPLE_BUFFER_SIZE / nInnerW;
+          nBufLoc1 = min(nBufLoc1,SAMPLE_BUFFER_SIZE);
+          if (nBufLoc0 < nBufPos)
             c = SetDCPenColor(hdcMem, clrWaveformPlayed);
           else
             c = SetDCPenColor(hdcMem, clrWaveform);
-          unsigned short nSample = pSampleBuffer[ nBufLoc ];
+          unsigned short nSample = 0;
+          for (int j=nBufLoc0; j<nBufLoc1; j++)
+            nSample = max(pSampleBuffer[ j ],nSample);
           unsigned short sh = nSample * nInnerH / 32767;
           MoveToEx(hdcMem,nInnerX + i,nInnerY + (nInnerH - sh) / 2,NULL);
           LineTo(hdcMem,nInnerX + i,nInnerY + (nInnerH - sh) / 2 + sh);
@@ -499,6 +503,17 @@ void PluginConfig()
 
 void PluginQuit()
 {
+  if (pModule)
+  {
+    if (bIsPlaying)
+      pModule->Stop();
+    if (hDLL)
+    {
+      FreeLibrary(hDLL);
+      hDLL = NULL;
+    }
+  }
+
   KillTimer( hWndWaveseek, TIMER_ID );
   DeleteObject( bmpSkin );
   DestroyWindow( hWndWaveseek );
