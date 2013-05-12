@@ -268,7 +268,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (wParam == TIMER_ID)
         {
           InvalidateRect(hWnd,NULL,FALSE);
-          SetTimer( hWndWaveseek, TIMER_ID, TIMER_FREQ, NULL );
+          //SetTimer( hWndWaveseek, TIMER_ID, TIMER_FREQ, NULL );
         }
       } break;
     case WM_WA_MPEG_EOF:
@@ -294,7 +294,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         HBITMAP hbmOld = (HBITMAP)SelectObject(hdcMem, hbmMem);
 
         HDC hdcSkin = CreateCompatibleDC( NULL );
-        SelectObject( hdcSkin, bmpSkin );
+        HBITMAP hbmSkinOld = (HBITMAP)SelectObject( hdcSkin, bmpSkin );
 
         FillRect(hdcMem,&rc,CreateSolidBrush(0));
 
@@ -331,6 +331,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         BitBlt( ps.hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, hdcMem, 0, 0, SRCCOPY );
 
+        SelectObject(hdcSkin, hbmSkinOld);
         DeleteDC(hdcSkin);
 
         SelectObject(hdcMem, hbmOld);
@@ -409,6 +410,10 @@ void PluginConfig()
 
 void PluginQuit()
 {
+  KillTimer( hWndWaveseek, TIMER_ID );
+  DeleteObject( bmpSkin );
+  DestroyWindow( hWndWaveseek );
+  UnregisterClassA( "waveseekwindow", pPluginDescription.hDllInstance );
 }
 
 winampGeneralPurposePlugin pPluginDescription =
