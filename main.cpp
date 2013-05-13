@@ -85,9 +85,9 @@ void StartProcessingFile( char * szFn )
       if (pluginGetter)
       {
         In_Module * pModule = pluginGetter();
-        if (pModule && pModule->is_seekable)
+        if (pModule)
         {
-          char * p = strdup(pModule->FileExtensions);
+          char * p = pModule->FileExtensions;
           while(*p)
           {
             char * sz = strdup( p );
