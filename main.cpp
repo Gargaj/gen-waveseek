@@ -49,6 +49,21 @@ COLORREF clrWaveformPlayed = RGB(0,127,0);
 
 void PluginConfig();
 
+char szIniPath[MAX_PATH] = {0};
+
+void GetIniFilePath(HWND hwnd_winamp){
+  if(SendMessage(hwnd_winamp,WM_WA_IPC,0,IPC_GETVERSION) >= 0x2900){
+    // this gets the string of the full ini file path
+    strncpy(szIniPath,(char*)SendMessage(hwnd_winamp,WM_WA_IPC,0,IPC_GETINIFILE),sizeof(szIniPath));
+  }
+  else{
+    char* p = szIniPath;
+    p += GetModuleFileNameA(0,szIniPath,sizeof(szIniPath)) - 1;
+    while(p && *p != '.'){p--;}
+    strncpy(p+1,"ini",sizeof(szIniPath));
+  }
+}
+
 bool bIsModernSkin = false;
 
 void StartProcessingFile( char * szFn )
@@ -312,8 +327,12 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
       unsigned short xPos = (int)(short) LOWORD(lParam);   // horizontal position 
       unsigned short yPos = (int)(short) HIWORD(lParam);   // vertical position 
 
+      RECT rcMain,rcWave;
+      GetWindowRect(hWnd,&rcMain);
+      GetWindowRect(hWndWaveseek,&rcWave);
+      //DebugBreak();
       if (!bIsModernSkin)
-        SetWindowPos( hWndWaveseek, NULL, xPos, yPos - 100, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
+        SetWindowPos( hWndWaveseek, NULL, xPos, yPos - 116, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
     } break;
   }
   return CallWindowProc(lpWndProcOld,hWnd,uMsg,wParam,lParam);
@@ -449,6 +468,14 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         else if (xPos > w - 15 && yPos > h - 15)
           SendMessage(hWnd, WM_NCLBUTTONDOWN, HTBOTTOMRIGHT, NULL);
       } break;
+    case WM_SIZE:
+      {
+        unsigned short x = GET_X_LPARAM(lParam); 
+        unsigned short y = GET_Y_LPARAM(lParam); 
+        x = x - (x % 25);
+        y = y - (y % 29);
+        SetWindowPos( hWnd, NULL, 0, 0, x, y, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE );
+      } break;
     case WM_CONTEXTMENU:
       {
         unsigned short xPos = GET_X_LPARAM(lParam); 
@@ -456,7 +483,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         HMENU hMenu = LoadMenu( pPluginDescription.hDllInstance, MAKEINTRESOURCE(IDR_CONTEXTMENU) );
         HMENU hSubMenu = GetSubMenu( hMenu, 0 );
         TrackPopupMenu( hSubMenu, NULL, xPos, yPos, NULL, hWnd, NULL );
-      }
+      } break;
     case WM_COMMAND:
       {
         switch (LOWORD(wParam))
@@ -470,7 +497,7 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
               PluginConfig();
             } break;
         }
-      }
+      } break;
   }
   return DefWindowProc(hWnd,uMsg,wParam,lParam);
 }
@@ -482,6 +509,8 @@ int PluginInit()
     lpWndProcOld = (WNDPROC)SetWindowLongW(pPluginDescription.hwndParent,GWL_WNDPROC,(LONG)WinampHookWndProc);
   else
     lpWndProcOld = (WNDPROC)SetWindowLongA(pPluginDescription.hwndParent,GWL_WNDPROC,(LONG)WinampHookWndProc);
+
+  GetIniFilePath(pPluginDescription.hwndParent);
 
   WNDCLASSA WC;
   WC.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -498,7 +527,13 @@ int PluginInit()
 
   RECT rc;
   GetWindowRect(pPluginDescription.hwndParent,&rc);
-  hWndWaveseek = CreateWindowExA(WS_EX_TOOLWINDOW,"waveseekwindow","MyWindow", WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_VISIBLE | WS_POPUP,rc.left,rc.top - 100,825,100,pPluginDescription.hwndParent,0,pPluginDescription.hDllInstance,0);
+
+  int nSizeX = GetPrivateProfileIntA("Waveseek","SizeX",825,szIniPath);
+  int nSizeY = GetPrivateProfileIntA("Waveseek","SizeY",116,szIniPath);
+  int nPosX = GetPrivateProfileIntA("Waveseek","PosX",rc.left,szIniPath);
+  int nPosY = GetPrivateProfileIntA("Waveseek","PosY",rc.top - nSizeY,szIniPath);
+
+  hWndWaveseek = CreateWindowExA(WS_EX_TOOLWINDOW,"waveseekwindow","MyWindow", WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_VISIBLE | WS_POPUP,nPosX,nPosY,nSizeX,nSizeY,pPluginDescription.hwndParent,0,pPluginDescription.hDllInstance,0);
   SetTimer( hWndWaveseek, TIMER_ID, TIMER_FREQ, NULL );
 
   ProcessSkinChange();
