@@ -472,6 +472,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
         unsigned short x = GET_X_LPARAM(lParam); 
         unsigned short y = GET_Y_LPARAM(lParam); 
+        x = max( x, 250 );
+        y = max( y, 58 );
         x = x - (x % 25);
         y = y - (y % 29);
         SetWindowPos( hWnd, NULL, 0, 0, x, y, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE );
