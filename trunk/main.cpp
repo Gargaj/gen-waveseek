@@ -10,6 +10,7 @@
 
 #define WA_DLG_IMPLEMENT
 #include <winamp/wa_dlg.h>
+#include <Strsafe.h>
 
 HWND hWndWaveseek = NULL;
 
@@ -62,6 +63,16 @@ void GetIniFilePath(HWND hwnd_winamp){
     while(p && *p != '.'){p--;}
     strncpy(p+1,"ini",sizeof(szIniPath));
   }
+}
+
+void SaveConfig() 
+{
+  if (!IsWindow(hWndWaveseek)) return;
+  RECT rc;
+  GetWindowRect(hWndWaveseek,&rc);
+  char sz[32];
+  _snprintf(sz,32,"%d",rc.right - rc.left); WritePrivateProfileStringA("Waveseek","SizeX",sz,szIniPath);
+  _snprintf(sz,32,"%d",rc.bottom - rc.top); WritePrivateProfileStringA("Waveseek","SizeY",sz,szIniPath);
 }
 
 bool bIsModernSkin = false;
@@ -477,6 +488,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         x = x - (x % 25);
         y = y - (y % 29);
         SetWindowPos( hWnd, NULL, 0, 0, x, y, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE );
+
+        SaveConfig();
       } break;
     case WM_CONTEXTMENU:
       {
@@ -554,6 +567,7 @@ void PluginConfig()
     _T("Waveform Seeker"),MB_ICONINFORMATION);
 }
 
+
 void PluginQuit()
 {
   if (pModule)
@@ -566,6 +580,8 @@ void PluginQuit()
       hDLL = NULL;
     }
   }
+
+  SaveConfig();
 
   KillTimer( hWndWaveseek, TIMER_ID );
   DeleteObject( bmpSkin );
