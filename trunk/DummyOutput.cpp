@@ -140,7 +140,7 @@ int DummyDSPIsActive()
 
 int DummyDSPDoSamples(short int *samples, int numsamples, int bps, int nch, int srate)
 {
-  return 0;
+  return numsamples;
 }
 
 Out_Module pDummyOutputPluginDescription = {
