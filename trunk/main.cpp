@@ -11,8 +11,10 @@
 #define WA_DLG_IMPLEMENT
 #include <winamp/wa_dlg.h>
 #include <Strsafe.h>
+#include <commctrl.h>
 
 HWND hWndWaveseek = NULL;
+HWND hWndToolTip = NULL;
 
 void DummySAVSAInit(int maxlatency_in_ms, int srate){}
 void DummySAVSADeInit(){}
@@ -349,6 +351,7 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
   return CallWindowProc(lpWndProcOld,hWnd,uMsg,wParam,lParam);
 }
 
+TOOLINFO ti;
 LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 //   WCHAR sz[1024];
@@ -457,8 +460,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       } break;
     case WM_LBUTTONUP:
       {
-        unsigned short xPos = GET_X_LPARAM(lParam); 
-        unsigned short yPos = GET_Y_LPARAM(lParam); 
+        short xPos = GET_X_LPARAM(lParam); 
+        short yPos = GET_Y_LPARAM(lParam); 
 
         int nSongLen = SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME );
 
@@ -471,8 +474,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       } break;
     case WM_LBUTTONDOWN:
       {
-        unsigned short xPos = GET_X_LPARAM(lParam); 
-        unsigned short yPos = GET_Y_LPARAM(lParam); 
+        short xPos = GET_X_LPARAM(lParam); 
+        short yPos = GET_Y_LPARAM(lParam); 
 
         if (yPos < 20)
           SendMessage(hWnd, WM_NCLBUTTONDOWN, HTCAPTION, NULL);
@@ -481,8 +484,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       } break;
     case WM_SIZE:
       {
-        unsigned short x = GET_X_LPARAM(lParam); 
-        unsigned short y = GET_Y_LPARAM(lParam); 
+        short x = GET_X_LPARAM(lParam); 
+        short y = GET_Y_LPARAM(lParam); 
         x = max( x, 250 );
         y = max( y, 58 );
         x = x - (x % 25);
@@ -493,8 +496,8 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       } break;
     case WM_CONTEXTMENU:
       {
-        unsigned short xPos = GET_X_LPARAM(lParam); 
-        unsigned short yPos = GET_Y_LPARAM(lParam); 
+        short xPos = GET_X_LPARAM(lParam); 
+        short yPos = GET_Y_LPARAM(lParam); 
         HMENU hMenu = LoadMenu( pPluginDescription.hDllInstance, MAKEINTRESOURCE(IDR_CONTEXTMENU) );
         HMENU hSubMenu = GetSubMenu( hMenu, 0 );
         TrackPopupMenu( hSubMenu, NULL, xPos, yPos, NULL, hWnd, NULL );
@@ -512,6 +515,48 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
               PluginConfig();
             } break;
         }
+      } break;
+    case WM_MOUSEMOVE:
+      {
+        static short xOldPos = 0; 
+        static short yOldPos = 0; 
+        short xPos = GET_X_LPARAM(lParam); 
+        short yPos = GET_Y_LPARAM(lParam); 
+        if (xPos == xOldPos && yPos == yOldPos)
+          break;
+
+        xOldPos = xPos;
+        yOldPos = yPos;
+
+        if ( nInnerX < xPos && xPos < nInnerX + nInnerW 
+          && nInnerY < yPos && yPos < nInnerY + nInnerH)
+        {
+          nLengthInMS = SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME );
+          if (nLengthInMS != -1)
+          {
+            unsigned int sec = MulDiv(xPos - nInnerX,nLengthInMS,nInnerW) / 1000;
+
+            TCHAR coords[32];
+            _stprintf(coords, 32, _T("%d:%02d"), sec / 60, sec % 60);
+            ti.lpszText = coords;
+
+            POINT pt = { xPos, yPos }; 
+            ClientToScreen(hWndWaveseek, &pt);
+
+            SendMessage( hWndToolTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti );
+            SendMessage( hWndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)&ti);
+
+            SendMessage( hWndToolTip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(pt.x + 10, pt.y - 20));
+          }
+        }
+        else
+        {
+          SendMessage( hWndToolTip, TTM_TRACKACTIVATE, FALSE, (LPARAM)&ti );
+        }
+      } break;
+    case WM_MOUSELEAVE:
+      {
+        SendMessage( hWndToolTip, TTM_TRACKACTIVATE, FALSE, (LPARAM)&ti );
       } break;
   }
   return DefWindowProc(hWnd,uMsg,wParam,lParam);
@@ -551,6 +596,19 @@ int PluginInit()
   hWndWaveseek = CreateWindowExA(WS_EX_TOOLWINDOW,"waveseekwindow","MyWindow", WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_VISIBLE | WS_POPUP,nPosX,nPosY,nSizeX,nSizeY,pPluginDescription.hwndParent,0,pPluginDescription.hDllInstance,0);
   SetTimer( hWndWaveseek, TIMER_ID, TIMER_FREQ, NULL );
 
+  hWndToolTip = CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, NULL, 
+    WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, 
+    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, 
+    hWndWaveseek, NULL, pPluginDescription.hDllInstance,NULL);
+
+  ZeroMemory(&ti,sizeof(TOOLINFO));
+  ti.cbSize = sizeof(TOOLINFO);
+  ti.uFlags = TTF_IDISHWND | TTF_TRACK | TTF_ABSOLUTE;
+  ti.hwnd = hWndWaveseek;
+  ti.hinst = pPluginDescription.hDllInstance;
+  ti.uId = (UINT_PTR)hWndWaveseek;
+  SendMessage( hWndToolTip, TTM_ADDTOOL, NULL, (LPARAM)&ti);
+
   ProcessSkinChange();
 
   return 0;
@@ -585,6 +643,7 @@ void PluginQuit()
 
   KillTimer( hWndWaveseek, TIMER_ID );
   DeleteObject( bmpSkin );
+  DestroyWindow( hWndToolTip );
   DestroyWindow( hWndWaveseek );
   UnregisterClassA( "waveseekwindow", pPluginDescription.hDllInstance );
 }
