@@ -389,6 +389,12 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
       {
         return CallWindowProc(lpWndProcOld,pPluginDescription.hwndParent,uMsg,wParam,lParam);
       } break;
+    case WM_KEYDOWN:
+    case WM_KEYUP:
+    case WM_CHAR:
+      {
+        PostMessage(pPluginDescription.hwndParent,uMsg,wParam,lParam);
+      } break;
     case WM_PAINT:
       {
         int nSongPos = SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, 0, IPC_GETOUTPUTTIME );
