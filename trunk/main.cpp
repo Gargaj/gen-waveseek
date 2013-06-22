@@ -469,12 +469,16 @@ LRESULT CALLBACK BoxWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         short xPos = GET_X_LPARAM(lParam); 
         short yPos = GET_Y_LPARAM(lParam); 
 
-        int nSongLen = SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME );
-
-        if (nSongLen != -1)
+        if ( nInnerX < xPos && xPos < nInnerX + nInnerW 
+          && nInnerY < yPos && yPos < nInnerY + nInnerH)
         {
-          unsigned int ms = MulDiv(xPos - nInnerX,nSongLen,nInnerW);
-          SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, ms, IPC_JUMPTOTIME);
+          int nSongLen = SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME );
+
+          if (nSongLen != -1)
+          {
+            unsigned int ms = MulDiv(xPos - nInnerX,nSongLen,nInnerW);
+            SendMessage( pPluginDescription.hwndParent, WM_WA_IPC, ms, IPC_JUMPTOTIME);
+          }
         }
 
       } break;
