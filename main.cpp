@@ -146,7 +146,7 @@ void StartProcessingFile( char * szFn )
   PluginGetter pluginGetter = (PluginGetter)GetProcAddress(hDLL, "winampGetInModule2");
   if (!pluginGetter) return;
   pModule = pluginGetter();
-  if (pModule->version != IN_VER)
+  if ((pModule->version & ~IN_UNICODE) != IN_VER)
   {
     pModule = NULL;
 
