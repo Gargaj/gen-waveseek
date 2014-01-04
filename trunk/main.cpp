@@ -146,6 +146,15 @@ void StartProcessingFile( char * szFn )
   PluginGetter pluginGetter = (PluginGetter)GetProcAddress(hDLL, "winampGetInModule2");
   if (!pluginGetter) return;
   pModule = pluginGetter();
+  if (pModule->version != IN_VER)
+  {
+    pModule = NULL;
+
+    FreeLibrary(hDLL);
+
+    hDLL = NULL;
+    return;
+  }
 
   pModule->hMainWindow = hWndWaveseek;
   pModule->hDllInstance = hDLL;
