@@ -1,5 +1,5 @@
 ==gen_waveseek_2014-02-26==
-* Add .CUE sheet support
+  * Add .CUE sheet support
 
 ==gen_waveseek_2014-01-04==
-* Winamp 5.666 compatibility fix (thanks DrO)
+  * Winamp 5.666 compatibility fix (thanks DrO)
