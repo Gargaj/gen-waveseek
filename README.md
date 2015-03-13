@@ -12,9 +12,6 @@ With skin support:
 
 ![http://i.imgur.com/nc19cSC.png](http://i.imgur.com/nc19cSC.png)
 
-### Changelog ###
-See RecentChanges
-
 ### Known issues ###
   * Cache directory not editable (i.e. there's no config)
   * Can break if plugins dir is not writable
