@@ -12,9 +12,6 @@ With skin support:
 
 ![http://i.imgur.com/nc19cSC.png](http://i.imgur.com/nc19cSC.png)
 
-### Downloads ###
-Download from https://drive.google.com/folderview?id=0B8kDiXvciZ1aSDdSVkRhcHdkSE0&usp=sharing#list
-
 ### Changelog ###
 See RecentChanges
 
