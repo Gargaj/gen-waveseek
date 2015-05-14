@@ -1,4 +1,4 @@
-<b>IMPORTANT:</b> This plugin crashes with Winamp 5.666 because the in\_mp3.dll uses some unimplemented API features internally which were never released in the official documentation; you'll notice it works fine on non-MP3 files.
+<b>IMPORTANT:</b> This plugin crashes with Winamp 5.666 because the in\_mp3.dll uses some unimplemented API features internally which were never released in the official documentation; you'll notice it works fine on non-MP3 files. You can download a fix for it at http://winampplugins.co.uk/Winamp/
 
 ## Waveform seek plugin for Winamp 5.x ##
 
