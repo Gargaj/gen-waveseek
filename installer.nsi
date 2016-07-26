@@ -9,30 +9,45 @@
 ; to be easier to use i think :o)
  
 ;--------------------------------
- 
-; Header Files
-; not used in this case but handy when scaling up to multiple sections
-; !include "Sections.nsh"
- 
+
+!define MINIMAL_VERSION "5.6.6.3507"
+
 ; common defines for a generic DrO installer :o)
-!define /date VERSION "%Y-%m-%d"
-!define /date ALT_VER "%Y-%m-%d"
-!define PLUG "Waveform Seek"
-!define PLUG_ALT "gen_waveseek"
+!define VERSION "2.1.2"
+!define ALT_VER "2_1_2"
+!define PLUG "Waveform Seeker"
+!define PLUG_ALT "Waveform_Seeker"
 !define PLUG_FILE "gen_waveseek"
  
 ; use lzma compression
-;SetCompressor lzma
+SetCompressor /SOLID lzma
  
+; adds xp style support
+XPStyle on
+
 ; The name of the installer based on the filename and version
 Name "${PLUG} v${VERSION}"
  
-; The file to write based on the filename and version
-; OutFile "${PLUG_ALT}_${ALT_VER}.exe"
-; you could alter it to output you plugin installers into a common location
-; to make it easier to maintain them
-OutFile "_Installers/${PLUG_ALT}_${ALT_VER}.exe"
+; The file to write
+OutFile "${PLUG_ALT}_v${ALT_VER}.exe"
  
+InstType "Plugin only"
+;InstType "Plugin + Example language file"
+InstType /NOCUSTOM
+InstType /COMPONENTSONLYONCUSTOM
+
+Icon "D:\Dev\git_dro\winamp-plug-ins\installer.ico"
+UninstallIcon "D:\Dev\git_dro\winamp-plug-ins\installer.ico"
+
+;Header Files
+
+!include "WordFunc.nsh"
+!include "Sections.nsh"
+!include "WinMessages.nsh"
+!include "FileFunc.nsh"
+!include "LogicLib.nsh"
+!insertmacro GetSize
+
 ; The default installation directory
 InstallDir $PROGRAMFILES\Winamp
 InstProgressFlags smooth
@@ -43,23 +58,21 @@ InstallDirRegKey HKLM \
           "UninstallString"
  
 ; The text to prompt the user to enter a directory
-DirText "Please select your Winamp path below (you will be able to proceed \
-         when Winamp is detected):"
+DirText "Please select your Winamp path below (you will be able to proceed when Winamp is detected):"
+# currently doesn't work - DirShow hide
  
 ; automatically close the installer when done.
 AutoCloseWindow true
  
-; adds xp style support
-XPStyle on
- 
 ; hide the "show details" box
-ShowInstDetails nevershow
+ShowInstDetails show
  
 ;--------------------------------
  
 ;Pages
  
 PageEx directory
+PageCallbacks "" "" directoryLeave
 Caption " "
 PageExEnd
  
@@ -71,49 +84,58 @@ Page instfiles
  
 ;--------------------------------
  
-; CloseWinamp: this will in a loop send the Winamp window the WM_CLOSE
-; message until it does not find a valid Winamp window
-; (should really protect against Winamp failing to exit!)
-;
-Function CloseWinamp
-  Push $5
-  loop:
-    FindWindow $5 "Winamp v1.x"
-    IntCmp $5 0 done
-    SendMessage $5 16 0 0
-    Sleep 100
-    Goto loop
-  done:
-  Pop $5
-FunctionEnd
- 
- 
 ; The stuff to install
 Section ""
-  ; attempt to close Winamp if it's running
-  Call CloseWinamp
-  ; add a small delay to allow any file operations to happen once Winamp
-  ; is closed
-  Sleep 100
- 
   SetOverwrite on
   SetOutPath "$INSTDIR\Plugins"
   ; File to extract
-  ; File "${PLUG_FILE}.dll"
-  ; if you're script is in the project folder then the following file path is
-  ; likely to apply otherwise just alter the path as needed
   File "Release\${PLUG_FILE}.dll"
-  File "${PLUG_FILE}.readme.txt"
   SetOverwrite off
 SectionEnd
  
+Function FindAndCloseWinamp
+  ;Detect running Winamp instances and close them
+  !define WINAMP_FILE_EXIT 40001
+
+  GetTempFileName $R3
+
+checkagain:
+  FindWinamp::find $R3 $INSTDIR
+
+  ReadINIStr $R0 $R3 "found" "num"
+  IntCmp $R0 0 ok
+
+    MessageBox MB_YESNO|MB_ICONEXCLAMATION "Please close all instances of Winamp before installing$\n\
+             ${PLUG} v${VERSION}.$\n$\nAttempt to close all Winamp instances now?" IDYES process IDNO 0
+  Delete $R3
+  Abort
+
+process:
+  ; adjust the size down by one otherwise
+  ; the loop will do one unwanted iteration
+  IntOp $R0 $R0 - 1
+
+  ${ForEach} $R2 0 $R0 + 1
+    ReadINIStr $R1 $R3 $R2 "hwnd"
+    SendMessage $R1 ${WM_COMMAND} ${WINAMP_FILE_EXIT} 0
+  ${Next}
+      Goto checkagain
+  ok:
+  Delete $R3
+FunctionEnd
+
+Function .onInit
+  Call FindAndCloseWinamp
+FunctionEnd
+
 ;--------------------------------
  
-; Success, now prompt the user if they want to run Winamp again
+Function directoryLeave
+  Call CheckWinampVersion
+FunctionEnd
+
 Function .onInstSuccess
-  MessageBox MB_YESNO \
-             '${PLUG} was installed. Do you want to run Winamp now?' \
-	 IDNO end
+  MessageBox MB_YESNO '${PLUG} was installed.$\nDo you want to run Winamp now?' /SD IDYES IDNO end
     ExecShell open "$INSTDIR\Winamp.exe"
   end:
 FunctionEnd
@@ -125,4 +147,18 @@ Function .onVerifyInstDir
   IfFileExists $INSTDIR\Winamp.exe Good
     Abort
   Good:
+FunctionEnd
+
+Function CheckWinampVersion
+  ${GetFileVersion} "$INSTDIR\winamp.exe" $R0 ; Get Winamp.exe version information, $R0 = Actual Version
+  ${if} $R0 != "" ; check if Version info is not empty
+    ${VersionCompare} $R0 ${MINIMAL_VERSION} $R1 ; $R1 = Result $R1=0  Versions are equal, $R1=1  Version1 is newer, $R1=2  Version2 is newer
+    ${if} $R1 == "2"
+      MessageBox MB_OK "Warning: This requires at least Winamp v${MINIMAL_VERSION} or higher to continue.$\n$\nPlease update your Winamp install if you are using an older version or check$\nto see if there is an updated version of ${PLUG} for your install.$\n$\nThe detected version of your Winamp install is: $R0"
+      Abort
+    ${EndIf}
+  ${Else}
+    MessageBox MB_OK "Warning: A valid Winamp install was not detected in the specified path.$\n$\nPlease check the Winamp directory and either install the latest version$\nfrom Winamp.com or choose another directory with a valid Winamp install$\nbefore you can install the ${PLUG} on your machine."
+    Abort
+  ${EndIf}
 FunctionEnd

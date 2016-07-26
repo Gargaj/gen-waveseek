@@ -1,15 +1,12 @@
+#pragma once
+
 int DummyDSPIsActive();
 int DummyDSPDoSamples(short int *samples, int numsamples, int bps, int nch, int srate);
 
+Out_Module* CreateOutput(HWND, HINSTANCE);
+void DestroyOutput();
+
 #define SAMPLE_BUFFER_SIZE 4096
 
-extern Out_Module pDummyOutputPluginDescription;
-extern winampGeneralPurposePlugin pPluginDescription;
+extern winampGeneralPurposePlugin plugin;
 extern unsigned short pSampleBuffer[SAMPLE_BUFFER_SIZE];
-
-extern unsigned int nFramePerWindow;
-extern unsigned int nSampleRate;
-extern unsigned int nNumChannels;
-extern unsigned int nBitsPerSample;
-extern unsigned int nBufferPointer;
-
