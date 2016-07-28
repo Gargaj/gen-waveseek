@@ -13,8 +13,8 @@
 !define MINIMAL_VERSION "5.6.6.3507"
 
 ; common defines for a generic DrO installer :o)
-!define VERSION "2.1.2"
-!define ALT_VER "2_1_2"
+!define VERSION "2.2"
+!define ALT_VER "2_2"
 !define PLUG "Waveform Seeker"
 !define PLUG_ALT "Waveform_Seeker"
 !define PLUG_FILE "gen_waveseek"
@@ -32,12 +32,12 @@ Name "${PLUG} v${VERSION}"
 OutFile "${PLUG_ALT}_v${ALT_VER}.exe"
  
 InstType "Plugin only"
-;InstType "Plugin + Example language file"
+InstType "Plugin + Example language file"
 InstType /NOCUSTOM
 InstType /COMPONENTSONLYONCUSTOM
 
-Icon "D:\Dev\git_dro\winamp-plug-ins\installer.ico"
-UninstallIcon "D:\Dev\git_dro\winamp-plug-ins\installer.ico"
+Icon "..\installer.ico"
+UninstallIcon "..\installer.ico"
 
 ;Header Files
 
@@ -75,11 +75,7 @@ PageEx directory
 PageCallbacks "" "" directoryLeave
 Caption " "
 PageExEnd
- 
-; enable this line if you have extra sections and want to choose what's
-; installed
-;Page components
- 
+Page components
 Page instfiles
  
 ;--------------------------------
@@ -93,6 +89,17 @@ Section ""
   SetOverwrite off
 SectionEnd
  
+Section "Example language file"
+;  SectionSetFlags 0  SF_BOLD
+  SectionIn 2
+
+  SetOverwrite on
+  SetOutPath "$INSTDIR\Plugins\${PLUG_FILE}"
+  ; File to extract
+  File "Release\LangFiles\${PLUG_FILE}.lng"
+  SetOverwrite off
+SectionEnd
+
 Function FindAndCloseWinamp
   ;Detect running Winamp instances and close them
   !define WINAMP_FILE_EXIT 40001
