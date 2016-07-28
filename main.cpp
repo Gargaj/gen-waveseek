@@ -83,7 +83,8 @@ wchar_t *szDLLPath = 0, *ini_file = 0,
 
 In_Module * pModule = NULL;
 int nLengthInMS = 0, no_uninstall = 1, delay_load = -1;
-bool bIsCurrent = false, bIsLoaded = false, bIsProcessing = false;
+bool bIsCurrent = false, bIsLoaded = false,
+	 bIsProcessing = false, bUnsupported = false;
 
 DWORD delay_ipc = (DWORD)-1;
 
@@ -415,7 +416,7 @@ void ProcessFilePlayback(const wchar_t * szFn, BOOL start_playing)
 {
 	ProcessStop();
 
-	bIsProcessing = bIsLoaded = false;
+	bIsProcessing = bIsLoaded = bUnsupported = false;
 	bIsCurrent = !lstrcmpi(szFn, (wchar_t*)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GET_PLAYING_FILENAME));
 	lstrcpyn(szFilename, szFn, MAX_PATH);
 
@@ -549,7 +550,7 @@ void PaintWaveform(HDC hdc, RECT rc)
 
 	FillRect(hdcMem, &rc, hbrBackground);
 
-	if (bIsLoaded || bIsProcessing)
+	if ((bIsLoaded || bIsProcessing) && !bUnsupported)
 	{
 		// make the width a bit less so the right-edge
 		// can allow for the end of the track to be

@@ -1,9 +1,7 @@
 #include <windows.h>
-#include <shlwapi.h>
-#include <winamp/in2.h>
+#include <stdlib.h>
 #include <winamp/out.h>
 #include <winamp/gen.h>
-#include <winamp/wa_ipc.h>
 #include "gen_waveseek.h"
 
 void DummyOutConfig(HWND /*hwnd*/) { }
@@ -40,6 +38,19 @@ int DummyOutOpen(int samplerate, int numchannels, int bitspersamp, int /*bufferl
 
 void DummyOutClose() { }
 
+void AddSample(unsigned int nSample)
+{
+	nCurrentAmplitude = max(nCurrentAmplitude, nSample);
+	++nCurrentSampleCount;
+
+	if (((nCurrentSampleCount / nNumChannels) == nFramePerWindow) && (nBufferPointer < SAMPLE_BUFFER_SIZE))
+	{
+		pSampleBuffer[nBufferPointer++] = nCurrentAmplitude;
+		nCurrentSampleCount = 0;
+		nCurrentAmplitude = 0;
+	}
+}
+
 int DummyOutWrite(char *buf, int len)
 {
 	if (nFramePerWindow == 0)
@@ -52,22 +63,28 @@ int DummyOutWrite(char *buf, int len)
 		const short * p = (short *)buf;
 		for (int i = 0; i < len / 2; i++)
 		{
-			unsigned int nSample = abs(*(p++));
-			nCurrentAmplitude = max(nCurrentAmplitude, nSample);
-			++nCurrentSampleCount;
-
-			if ((nCurrentSampleCount / nNumChannels) == nFramePerWindow && (nBufferPointer < SAMPLE_BUFFER_SIZE))
-			{
-				pSampleBuffer[nBufferPointer++] = nCurrentAmplitude; // *2 -> abs()
-				nCurrentSampleCount = 0;
-				nCurrentAmplitude = 0;
-			}
+			const unsigned int nSample = abs(*(p++));
+			AddSample(nSample);
 		}
 	}
-	/*else
+	else if (nBitsPerSample == 24)
 	{
-		DebugBreak(); // todo?
-	}*/
+		const char * p = (char *)buf;
+		for (int i = 0; i < len / 3; i++)
+			{
+			const unsigned int nSample = abs((((0xFF & *(p + 2)) << 24) | ((0xFF & *(p + 1)) << 16) | ((0xFF & *(p)) << 8)) >> 16);
+			p += 3;
+			AddSample((nSample));
+			}
+		}
+	else
+	{
+		// if we don't support it then we need to flag it
+		// so that a message is provided to the user else
+		// it can cause confusion due to looking broken.
+		extern bool bUnsupported;
+		bUnsupported = true;
+	}
   
 	return 0;
 }
