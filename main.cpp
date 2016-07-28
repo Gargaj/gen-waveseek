@@ -16,7 +16,7 @@
 #include "gen_waveseek.h"
 #include "embedwnd.h"
 
-#define PLUGIN_VERSION "2.1.2"
+#define PLUGIN_VERSION "2.2"
 
 #ifdef GetPrivateProfileInt
 #undef GetPrivateProfileInt
@@ -665,10 +665,49 @@ BOOL Menu_TrackPopup(HMENU hMenu, UINT fuFlags, int x, int y, HWND hwnd)
 	return TrackPopupMenu(hMenu, fuFlags, x, y, 0, hwnd, NULL);
 }
 
-bool ProcessMenuResult(UINT command)
+bool ProcessMenuResult(UINT command, HWND parent)
 {
 	switch (LOWORD(command))
 	{
+		case ID_SUBMENU_VIEWFILEINFO:
+		{
+			infoBoxParamW infoBoxW = {hWndWaveseek, szFilename};
+			SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&infoBoxW, IPC_INFOBOXW);
+			break;
+		}
+		case ID_SUBMENU_CLEARWAVCACHE:
+		{
+			if (MessageBox(parent, WASABI_API_LNGSTRINGW(IDS_CLEAR_CACHE),
+						   (LPWSTR)plugin.description, MB_YESNO | MB_ICONQUESTION) != IDYES)
+			{
+				break;
+			}
+
+			// remove all *.cache files in the users current cache folder.
+			//
+			// removing the waveseek_in_*.dll isn't covered as they are
+			// still loaded and the unload / force delete will cause a
+			// crash and so is not worth the hassle to do it. plus it
+			// updates automatically as needed with the copy file checks :)
+			WIN32_FIND_DATAW wfd = {0};
+			wchar_t szFnFind[MAX_PATH] = {0};
+			PathCombine(szFnFind, szWaveCacheDir, L"*.cache");
+			HANDLE hFind = FindFirstFile(szFnFind, &wfd);
+
+			if (hFind != INVALID_HANDLE_VALUE)
+			{
+				do
+				{
+					PathCombine(szFnFind, szWaveCacheDir, wfd.cFileName);
+					DeleteFile(szFnFind);
+				}
+				while (FindNextFile(hFind, &wfd));
+				FindClose(hFind);
+			}
+
+			// we will want to fall through so we
+			// can then re-render the current file
+		}
 		case ID_SUBMENU_RERENDER:
 		{
 			if (!PathIsURL(szFilename))
@@ -683,12 +722,6 @@ bool ProcessMenuResult(UINT command)
 
 				ProcessFilePlayback(szFilename, TRUE);
 			}
-			break;
-		}
-		case ID_SUBMENU_VIEWFILEINFO:
-		{
-			infoBoxParamW infoBoxW = {hWndWaveseek, szFilename};
-			SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&infoBoxW, IPC_INFOBOXW);
 			break;
 		}
 		case ID_CONTEXTMENU_CLICKTRACK:
@@ -754,7 +787,7 @@ INT_PTR CALLBACK EmdedWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		case WM_COMMAND:	// for what's handled from the accel table
 		{
-			if (ProcessMenuResult(wParam))
+			if (ProcessMenuResult(wParam, hWnd))
 			{
 				break;
 			}
@@ -789,7 +822,7 @@ INT_PTR CALLBACK EmdedWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			}
 
 			ProcessMenuResult(Menu_TrackPopup(popup, TPM_LEFTALIGN | TPM_LEFTBUTTON |
-							  TPM_RIGHTBUTTON | TPM_RETURNCMD, xPos, yPos, hWnd));
+							  TPM_RIGHTBUTTON | TPM_RETURNCMD, xPos, yPos, hWnd), hWnd);
 
 			DestroyMenu(hMenu);
 			break;
@@ -989,7 +1022,7 @@ INT_PTR CALLBACK InnerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 
 				SendMessage(hWndToolTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
 				SendMessage(hWndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)&ti);
-				SendMessage(hWndToolTip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(pt.x + 10, pt.y - 20));
+				SendMessage(hWndToolTip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(pt.x + 11, pt.y - 2));
 			}
 			break;
 		}
@@ -1312,7 +1345,7 @@ void PluginConfig()
 
 	CheckMenuItem(popup, ID_CONTEXTMENU_CLICKTRACK, MF_BYCOMMAND | (clickTrack ? MF_CHECKED : MF_UNCHECKED));
 	CheckMenuItem(popup, ID_SUBMENU_SHOWCUEPOINTS, MF_BYCOMMAND | (showCuePoints ? MF_CHECKED : MF_UNCHECKED));
-	ProcessMenuResult(TrackPopupMenu(popup, TPM_RETURNCMD | TPM_LEFTBUTTON, r.left, r.top, 0, list, NULL));
+	ProcessMenuResult(TrackPopupMenu(popup, TPM_RETURNCMD | TPM_LEFTBUTTON, r.left, r.top, 0, list, NULL), list);
 
 	DestroyMenu(hMenu);
 }
