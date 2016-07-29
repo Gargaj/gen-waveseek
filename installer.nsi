@@ -49,7 +49,7 @@ UninstallIcon "..\installer.ico"
 !insertmacro GetSize
 
 ; The default installation directory
-InstallDir $PROGRAMFILES\Winamp
+InstallDir "$PROGRAMFILES\Winamp\"
 InstProgressFlags smooth
  
 ; detect Winamp path from uninstall string if available
@@ -131,14 +131,13 @@ process:
   Delete $R3
 FunctionEnd
 
-Function .onInit
-  Call FindAndCloseWinamp
-FunctionEnd
-
 ;--------------------------------
  
 Function directoryLeave
+  ; check that it's a supported Winamp version
   Call CheckWinampVersion
+  ; and if it is then ensure it's not running
+  Call FindAndCloseWinamp
 FunctionEnd
 
 Function .onInstSuccess
