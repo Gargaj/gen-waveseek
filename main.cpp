@@ -16,7 +16,7 @@
 #include "gen_waveseek.h"
 #include "embedwnd.h"
 
-#define PLUGIN_VERSION "2.2"
+#define PLUGIN_VERSION "2.2.1"
 
 #ifdef GetPrivateProfileInt
 #undef GetPrivateProfileInt
@@ -40,7 +40,7 @@
 static const GUID embed_guid = 
 { 0x1c2f2c09, 0x4f43, 0x4cff, { 0x9d, 0xe7, 0x32, 0xe0, 0x14, 0x63, 0x8d, 0xfc } };
 
-HWND hWndWaveseek = NULL, hWndToolTip = NULL;
+HWND hWndWaveseek = NULL, hWndToolTip = NULL, hWndInner = NULL;
 WNDPROC oldPlaylistWndProc = NULL;
 embedWindowState embed = {0};
 TOOLINFO ti = {0};
@@ -79,7 +79,7 @@ wchar_t *szDLLPath = 0, *ini_file = 0,
 		szTempDLLDestination[MAX_PATH] = {0},
 		szUnavailable[128] = {0},
 		szStreamsNotSupported[128] = {0},
-		pluginTitleW[MAX_PATH] = {0};
+		pluginTitleW[256] = {0};
 
 In_Module * pModule = NULL;
 int nLengthInMS = 0, no_uninstall = 1, delay_load = -1;
@@ -412,6 +412,75 @@ void LoadCUE(wchar_t * szFn)
 	fclose(f);
 }
 
+LPWSTR GetTooltipText(HWND hWnd, int pos, int lengthInMS)
+{
+	static wchar_t coords[256] = {0};
+	RECT rc = {0};
+	GetClientRect(hWnd, &rc);
+
+	// adjust width down by 1px so that the tooltip should then
+	// appear when the mouse is at the far right of the window.
+	unsigned int cur_ms = MulDiv(pos, lengthInMS, (rc.right - rc.left) - 1),
+				 sec = (cur_ms > 0 ? (cur_ms / 1000) : 0),
+				 total_sec = (lengthInMS > 0 ? (lengthInMS / 1000) : 0);
+
+	int nTrack = -1;
+	for (int i = 0; i < nCueTracks; i++)
+	{
+		if (i < nCueTracks - 1)
+		{
+			if (pCueTracks[i].nMillisec <= cur_ms && cur_ms < pCueTracks[i + 1].nMillisec)
+			{
+				nTrack = i;
+			}
+		}
+		else
+		{
+			if (pCueTracks[i].nMillisec <= cur_ms)
+			{
+				nTrack = i;
+			}
+		}
+	}
+
+	if (nTrack >= 0)
+	{
+		if (pCueTracks[nTrack].szPerformer[0])
+		{
+			StringCchPrintf(coords, ARRAYSIZE(coords), L"%s - %s [%d:%02d / %d:%02d]",
+							pCueTracks[nTrack].szPerformer, pCueTracks[nTrack].szTitle,
+							sec / 60, sec % 60, total_sec / 60, total_sec % 60);
+		}
+		else
+		{
+			StringCchPrintf(coords, ARRAYSIZE(coords), L"%s [%d:%02d / %d:%02d]",
+							pCueTracks[nTrack].szTitle,
+							sec / 60, sec % 60, total_sec / 60, total_sec % 60);
+		}
+	}
+	else
+	{
+		StringCchPrintf(coords, ARRAYSIZE(coords), L"%d:%02d / %d:%02d",
+						sec / 60, sec % 60, total_sec / 60, total_sec % 60);
+	}
+
+	return coords;
+}
+
+int GetFileLength()
+{
+	basicFileInfoStructW bfiW = {0};
+	bfiW.filename = szFilename;
+	if (!SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&bfiW, IPC_GET_BASIC_FILE_INFOW))
+	{
+		if (bfiW.length != -1)
+		{
+			return (bfiW.length * 1000);
+		}
+	}
+	return -1000;
+}
+
 void ProcessFilePlayback(const wchar_t * szFn, BOOL start_playing)
 {
 	ProcessStop();
@@ -456,6 +525,18 @@ void ProcessFilePlayback(const wchar_t * szFn, BOOL start_playing)
 				}
 			}
 		}
+	}
+
+	// if the tooltip is being shown then we need to try
+	// & update it so that it reflects the current view.
+	if (IsWindowVisible(hWndToolTip))
+	{
+		const int lengthInMS = (bIsCurrent ? SendMessage(plugin.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME) : GetFileLength());
+		POINT pt = {0};
+		GetCursorPos(&pt);
+		ScreenToClient(hWndInner, &pt);
+		ti.lpszText = GetTooltipText(hWndInner, pt.x, lengthInMS);
+		SendMessage(hWndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)&ti);
 	}
 }
 
@@ -520,20 +601,6 @@ void ProcessSkinChange()
 		hFont = NULL;
 	}
 	GetWaveformFont();
-}
-
-int GetFileLength()
-{
-	basicFileInfoStructW bfiW = {0};
-	bfiW.filename = szFilename;
-	if (!SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)&bfiW, IPC_GET_BASIC_FILE_INFOW))
-	{
-		if (bfiW.length != -1)
-		{
-			return (bfiW.length * 1000);
-		}
-	}
-	return -1000;
 }
 
 void PaintWaveform(HDC hdc, RECT rc)
@@ -958,15 +1025,6 @@ INT_PTR CALLBACK InnerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			const int lengthInMS = (bIsCurrent ? SendMessage(plugin.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME) : GetFileLength());
 			if (lengthInMS > 0)
 			{
-				RECT rc = {0};
-				GetClientRect(hWnd, &rc);
-
-				// adjust width down by 1px so that the tooltip should then
-				// appear when the mouse is at the far right of the window.
-				unsigned int cur_ms = MulDiv(xPos, lengthInMS, (rc.right - rc.left) - 1),
-							 sec = (cur_ms > 0 ? (cur_ms / 1000) : 0),
-							 total_sec = (lengthInMS > 0 ? (lengthInMS / 1000) : 0);
-
 				// ensures we'll get a WM_MOUSELEAVE 
 				TRACKMOUSEEVENT trackMouse = {0};
 				trackMouse.cbSize = sizeof(trackMouse);
@@ -974,52 +1032,10 @@ INT_PTR CALLBACK InnerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 				trackMouse.hwndTrack = hWnd;
 				TrackMouseEvent(&trackMouse);
 
-				wchar_t coords[256] = {0};
-
-				int nTrack = -1;
-				for (int i = 0; i < nCueTracks; i++)
-				{
-					if (i < nCueTracks - 1)
-					{
-						if (pCueTracks[i].nMillisec <= cur_ms && cur_ms < pCueTracks[i + 1].nMillisec)
-						{
-							nTrack = i;
-						}
-					}
-					else
-					{
-						if (pCueTracks[i].nMillisec <= cur_ms)
-						{
-							nTrack = i;
-						}
-					}
-				}
-
-				if (nTrack >= 0)
-				{
-					if (pCueTracks[nTrack].szPerformer[0])
-					{
-						StringCchPrintf(coords, ARRAYSIZE(coords), L"%s - %s [%d:%02d / %d:%02d]",
-										pCueTracks[nTrack].szPerformer, pCueTracks[nTrack].szTitle,
-										sec / 60, sec % 60, total_sec / 60, total_sec % 60);
-					}
-					else
-					{
-						StringCchPrintf(coords, ARRAYSIZE(coords), L"%s [%d:%02d / %d:%02d]",
-										pCueTracks[nTrack].szTitle,
-										sec / 60, sec % 60, total_sec / 60, total_sec % 60);
-					}
-				}
-				else
-				{
-					StringCchPrintf(coords, ARRAYSIZE(coords), L"%d:%02d / %d:%02d",
-									sec / 60, sec % 60, total_sec / 60, total_sec % 60);
-				}
-
-				ti.lpszText = coords;
 
 				POINT pt = {xPos, yPos};
 				ClientToScreen(hWndWaveseek, &pt);
+				ti.lpszText = GetTooltipText(hWnd, xPos, lengthInMS);
 
 				SendMessage(hWndToolTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
 				SendMessage(hWndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)&ti);
@@ -1246,7 +1262,7 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 				WASABI_API_APP->app_addAccelerators(hWndWaveseek, &accel, 1, TRANSLATE_MODE_NORMAL);
 			}
 
-			CreateDialogParam(plugin.hDllInstance, MAKEINTRESOURCE(IDD_VIEW),
+			hWndInner = CreateDialogParam(plugin.hDllInstance, MAKEINTRESOURCE(IDD_VIEW),
 							  hWndWaveseek, InnerWndProc, (LPARAM)hWndWaveseek);
 
 			ProcessFilePlayback((const wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC,
@@ -1307,7 +1323,7 @@ int PluginInit()
 		// TODO add to lang.h
 		WASABI_API_START_LANG(plugin.hDllInstance, embed_guid);
 
-		StringCchPrintf(pluginTitleW, MAX_PATH, WASABI_API_LNGSTRINGW(IDS_PLUGIN_NAME), TEXT(PLUGIN_VERSION));
+		StringCchPrintf(pluginTitleW, ARRAYSIZE(pluginTitleW), WASABI_API_LNGSTRINGW(IDS_PLUGIN_NAME), TEXT(PLUGIN_VERSION));
 		plugin.description = (char*)pluginTitleW;
 
 		ServiceBuild(WASABI_API_SVC, WASABI_API_APP, applicationApiServiceGuid);
