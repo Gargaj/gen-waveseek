@@ -756,7 +756,7 @@ bool ProcessMenuResult(UINT command, HWND parent)
 		}
 		case ID_SUBMENU_ABOUT:
 		{
-			wchar_t message[256] = {0};
+			wchar_t message[512] = {0};
 			StringCchPrintf(message, ARRAYSIZE(message), WASABI_API_LNGSTRINGW(IDS_ABOUT_STRING), TEXT(__DATE__));
 			MessageBox(plugin.hwndParent, message, pluginTitleW, 0);
 			break;
