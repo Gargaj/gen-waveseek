@@ -422,7 +422,8 @@ void ProcessFilePlayback(const wchar_t * szFn, BOOL start_playing)
 
 	nCueTracks = 0;
 
-	if (!PathIsURL(szFn))
+	// make sure that it's valid and something we can process
+	if (szFilename[0] && !PathIsURL(szFn))
 	{
 		wchar_t szCue[MAX_PATH] = {0};
 		lstrcpyn(szCue, szFn, MAX_PATH);
