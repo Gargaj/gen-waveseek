@@ -13,8 +13,8 @@
 !define MINIMAL_VERSION "5.6.6.3507"
 
 ; common defines for a generic DrO installer :o)
-!define VERSION "2.2"
-!define ALT_VER "2_2"
+!define VERSION "2.2.1"
+!define ALT_VER "2_2_1"
 !define PLUG "Waveform Seeker"
 !define PLUG_ALT "Waveform_Seeker"
 !define PLUG_FILE "gen_waveseek"
