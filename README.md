@@ -13,3 +13,7 @@ With skin support:
 ### Building ###
 
 Use Visual Studio 2010, and get the latest(!!!) Winamp SDK from here: https://getwinamp.com/wacup/sdk/
+
+### Downloads ###
+
+Get the latest installer from https://getwinamp.com/wacup/plugins/waveform_seeker/ or from the [releases section](https://github.com/Gargaj/gen-waveseek/releases).
