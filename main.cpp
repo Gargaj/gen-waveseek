@@ -44,7 +44,7 @@ HWND hWndWaveseek = NULL, hWndToolTip = NULL, hWndInner = NULL;
 WNDPROC oldPlaylistWndProc = NULL;
 embedWindowState embed = {0};
 TOOLINFO ti = {0};
-int on_click = 0, clickTrack = 1, showCuePoints = 0;
+int on_click = 0, clickTrack = 1, showCuePoints = 0, hideTooltip = 0;
 UINT WINAMP_WAVEFORM_SEEK_MENUID = 0xa1bb;
 
 api_service* WASABI_API_SVC = NULL;
@@ -78,13 +78,14 @@ wchar_t *szDLLPath = 0, *ini_file = 0,
 		szWaveCacheFile[MAX_PATH] = {0},
 		szTempDLLDestination[MAX_PATH] = {0},
 		szUnavailable[128] = {0},
+		szBadPlugin[128] = {0},
 		szStreamsNotSupported[128] = {0},
 		pluginTitleW[256] = {0};
 
 In_Module * pModule = NULL;
 int nLengthInMS = 0, no_uninstall = 1, delay_load = -1;
-bool bIsCurrent = false, bIsLoaded = false,
-	 bIsProcessing = false, bUnsupported = false;
+bool bIsCurrent = false, bIsLoaded = false, bIsProcessing = false;
+int bUnsupported = 0;
 
 DWORD delay_ipc = (DWORD)-1;
 
@@ -198,6 +199,21 @@ void StartProcessingFile(const wchar_t * szFn, BOOL start_playing)
 			// we got a valid In_Module * so make a temp copy
 			// which we'll then be calling for the processing
 			wchar_t *filename = PathFindFileName(szSource);
+
+			if (StrStrI(filename, L"in_midi.dll") ||
+				StrStrI(filename, L"in_wm.dll"))
+			{
+				// these native nullsoft plug-in really
+				// really really doesn't like to work as a
+				// multi-instance plug-in so best to just
+				// not attempt to use it for processing :(
+				//
+				// somehow leveraging the transcoding api
+				// might be enough to re-enable in_wm.dll
+				bUnsupported = 2;
+				return;
+			}
+
 			PathCombine(szTempDLLDestination, szWaveCacheDir, L"waveseek_");
 			PathAddExtension(szTempDLLDestination, filename);
 			// if not there then copy it
@@ -526,7 +542,7 @@ void ProcessFilePlayback(const wchar_t * szFn, BOOL start_playing)
 
 	// if the tooltip is being shown then we need to try
 	// & update it so that it reflects the current view.
-	if (IsWindowVisible(hWndToolTip))
+	if (!hideTooltip && IsWindowVisible(hWndToolTip))
 	{
 		const int lengthInMS = (bIsCurrent ? SendMessage(plugin.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME) : GetFileLength());
 		POINT pt = {0};
@@ -676,7 +692,8 @@ void PaintWaveform(HDC hdc, RECT rc)
 		SetBkColor(hdcMem, clrBackground);
 		SetTextColor(hdcMem, clrGeneratingText);
 
-		DrawText(hdcMem, (!PathIsURL(szFilename) ? szUnavailable : szStreamsNotSupported),
+		DrawText(hdcMem, (!PathIsURL(szFilename) ? (bUnsupported == 2 ? szBadPlugin :
+													szUnavailable) : szStreamsNotSupported),
 				 -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 	}
 
@@ -818,6 +835,12 @@ bool ProcessMenuResult(UINT command, HWND parent)
 			WritePrivateProfileInt(L"Waveseek", L"showCuePoints", showCuePoints, ini_file);
 			break;
 		}
+		case ID_SUBMENU_HIDEWAVEFORMTOOLTIP:
+		{
+			hideTooltip = (!hideTooltip);
+			WritePrivateProfileInt(L"Waveseek", L"hideTooltip", hideTooltip, ini_file);
+			break;
+		}
 		case ID_SUBMENU_ABOUT:
 		{
 			wchar_t message[512] = {0};
@@ -874,6 +897,7 @@ INT_PTR CALLBACK EmdedWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 			HMENU popup = GetSubMenu(hMenu, 0);
 			CheckMenuItem(popup, ID_CONTEXTMENU_CLICKTRACK, MF_BYCOMMAND | (clickTrack ? MF_CHECKED : MF_UNCHECKED));
 			CheckMenuItem(popup, ID_SUBMENU_SHOWCUEPOINTS, MF_BYCOMMAND | (showCuePoints ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(popup, ID_SUBMENU_HIDEWAVEFORMTOOLTIP, MF_BYCOMMAND | (hideTooltip ? MF_CHECKED : MF_UNCHECKED));
 
 			// this will handle the menu being shown not via the mouse actions
 			// so is positioned just below the header if no selection but there's a queue
@@ -1006,37 +1030,39 @@ INT_PTR CALLBACK InnerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 		}
 		case WM_MOUSEMOVE:
 		{
-			static short xOldPos = 0; 
-			static short yOldPos = 0; 
-			short xPos = GET_X_LPARAM(lParam); 
-			short yPos = GET_Y_LPARAM(lParam); 
-
-			if (xPos == xOldPos && yPos == yOldPos)
+			if (!hideTooltip)
 			{
-				break;
-			}
+				static short xOldPos = 0; 
+				static short yOldPos = 0; 
+				short xPos = GET_X_LPARAM(lParam); 
+				short yPos = GET_Y_LPARAM(lParam); 
 
-			xOldPos = xPos;
-			yOldPos = yPos;
+				if (xPos == xOldPos && yPos == yOldPos)
+				{
+					break;
+				}
 
-			const int lengthInMS = (bIsCurrent ? SendMessage(plugin.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME) : GetFileLength());
-			if (lengthInMS > 0)
-			{
-				// ensures we'll get a WM_MOUSELEAVE 
-				TRACKMOUSEEVENT trackMouse = {0};
-				trackMouse.cbSize = sizeof(trackMouse);
-				trackMouse.dwFlags = TME_LEAVE;
-				trackMouse.hwndTrack = hWnd;
-				TrackMouseEvent(&trackMouse);
+				xOldPos = xPos;
+				yOldPos = yPos;
 
+				const int lengthInMS = (bIsCurrent ? SendMessage(plugin.hwndParent, WM_WA_IPC, 2, IPC_GETOUTPUTTIME) : GetFileLength());
+				if (lengthInMS > 0)
+				{
+					// ensures we'll get a WM_MOUSELEAVE 
+					TRACKMOUSEEVENT trackMouse = {0};
+					trackMouse.cbSize = sizeof(trackMouse);
+					trackMouse.dwFlags = TME_LEAVE;
+					trackMouse.hwndTrack = hWnd;
+					TrackMouseEvent(&trackMouse);
 
-				POINT pt = {xPos, yPos};
-				ClientToScreen(hWndWaveseek, &pt);
-				ti.lpszText = GetTooltipText(hWnd, xPos, lengthInMS);
+					POINT pt = {xPos, yPos};
+					ClientToScreen(hWndWaveseek, &pt);
+					ti.lpszText = GetTooltipText(hWnd, xPos, lengthInMS);
 
-				SendMessage(hWndToolTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
-				SendMessage(hWndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)&ti);
-				SendMessage(hWndToolTip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(pt.x + 11, pt.y - 2));
+					SendMessage(hWndToolTip, TTM_TRACKACTIVATE, TRUE, (LPARAM)&ti);
+					SendMessage(hWndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)&ti);
+					SendMessage(hWndToolTip, TTM_TRACKPOSITION, 0, (LPARAM)MAKELONG(pt.x + 11, pt.y - 2));
+				}
 			}
 			break;
 		}
@@ -1200,7 +1226,7 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 					PathCombine(szFnFind, szOldWaveCacheDir, L"*.cache");
 
 					WIN32_FIND_DATA wfd = {0};
-					HANDLE hFind = FindFirstFile( szFnFind, &wfd );
+					HANDLE hFind = FindFirstFile(szFnFind, &wfd);
 					if (hFind != INVALID_HANDLE_VALUE)
 					{
 						do
@@ -1225,6 +1251,7 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 			clickTrack = GetPrivateProfileInt(L"clickTrack", 1);
 			showCuePoints = GetPrivateProfileInt(L"showCuePoints", 0);
+			hideTooltip = GetPrivateProfileInt(L"hideTooltip", 0);
 
 			ProcessSkinChange();
 
@@ -1260,7 +1287,7 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 			}
 
 			hWndInner = CreateDialogParam(plugin.hDllInstance, MAKEINTRESOURCE(IDD_VIEW),
-							  hWndWaveseek, InnerWndProc, (LPARAM)hWndWaveseek);
+										  hWndWaveseek, InnerWndProc, (LPARAM)hWndWaveseek);
 
 			ProcessFilePlayback((const wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC,
 								SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETLISTPOS),
@@ -1270,6 +1297,7 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 			oldPlaylistWndProc = (WNDPROC)SetWindowLongPtr(pe_wnd, GWLP_WNDPROC, (LONG_PTR)SubclassPlaylistProc);
 
 			WASABI_API_LNGSTRINGW_BUF(IDS_WAVEFORM_UNAVAILABLE, szUnavailable, ARRAYSIZE(szUnavailable));
+			WASABI_API_LNGSTRINGW_BUF(IDS_WAVEFORM_UNAVAILABLE_BAD_PLUGIN, szBadPlugin, ARRAYSIZE(szBadPlugin));
 			WASABI_API_LNGSTRINGW_BUF(IDS_STREAMS_NOT_SUPPORTED, szStreamsNotSupported, ARRAYSIZE(szStreamsNotSupported));
 
 
@@ -1359,6 +1387,7 @@ void PluginConfig()
 
 	CheckMenuItem(popup, ID_CONTEXTMENU_CLICKTRACK, MF_BYCOMMAND | (clickTrack ? MF_CHECKED : MF_UNCHECKED));
 	CheckMenuItem(popup, ID_SUBMENU_SHOWCUEPOINTS, MF_BYCOMMAND | (showCuePoints ? MF_CHECKED : MF_UNCHECKED));
+	CheckMenuItem(popup, ID_SUBMENU_HIDEWAVEFORMTOOLTIP, MF_BYCOMMAND | (hideTooltip ? MF_CHECKED : MF_UNCHECKED));
 	ProcessMenuResult(TrackPopupMenu(popup, TPM_RETURNCMD | TPM_LEFTBUTTON, r.left, r.top, 0, list, NULL), list);
 
 	DestroyMenu(hMenu);

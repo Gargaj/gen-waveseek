@@ -71,19 +71,19 @@ int DummyOutWrite(char *buf, int len)
 	{
 		const char * p = (char *)buf;
 		for (int i = 0; i < len / 3; i++)
-			{
+		{
 			const unsigned int nSample = abs((((0xFF & *(p + 2)) << 24) | ((0xFF & *(p + 1)) << 16) | ((0xFF & *(p)) << 8)) >> 16);
 			p += 3;
 			AddSample((nSample));
-			}
 		}
+	}
 	else
 	{
 		// if we don't support it then we need to flag it
 		// so that a message is provided to the user else
 		// it can cause confusion due to looking broken.
-		extern bool bUnsupported;
-		bUnsupported = true;
+		extern int bUnsupported;
+		bUnsupported = 1;
 	}
   
 	return 0;
