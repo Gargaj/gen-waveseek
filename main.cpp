@@ -177,9 +177,6 @@ void StartProcessingFile(const wchar_t * szFn, BOOL start_playing)
 	HMODULE hDLL = NULL;
 	pModule = NULL;
 
-	wchar_t szDLLMask[MAX_PATH] = {0};
-	PathCombine(szDLLMask, szDLLPath, L"in_*.dll");
-
 	// we use Winamp's own checking to more reliably ensure that we'll
 	// get which plug-in is actually responsible for the file handling
 	In_Module *in_mod = (In_Module*)SendMessage(plugin.hwndParent, WM_WA_IPC, (WPARAM)szFn, IPC_CANPLAY);
