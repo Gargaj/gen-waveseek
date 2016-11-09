@@ -16,7 +16,7 @@
 #include "gen_waveseek.h"
 #include "embedwnd.h"
 
-#define PLUGIN_VERSION "2.2.1"
+#define PLUGIN_VERSION "2.3.0"
 
 #ifdef GetPrivateProfileInt
 #undef GetPrivateProfileInt
