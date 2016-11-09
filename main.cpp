@@ -496,6 +496,15 @@ int GetFileLength()
 
 void ProcessFilePlayback(const wchar_t * szFn, BOOL start_playing)
 {
+	if (StrStrI(szFilename, szFn) && bIsProcessing)
+	{
+		// if we're already processing and we're asked
+		// to re-process (e.g. multiple clicks in the
+		// main playlist editor) then we try to filter
+		// out and keep going if it's the same file.
+		return;
+	}
+
 	ProcessStop();
 
 	bIsProcessing = bIsLoaded = bUnsupported = false;
