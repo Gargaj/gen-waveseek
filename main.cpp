@@ -15,8 +15,12 @@
 #include "api.h"
 #include "gen_waveseek.h"
 #include "embedwnd.h"
+#ifdef WACUP_BUILD
+#include "../../loader/hook/get_api_service.h"
+#include "../../loader/loader/paths.h"
+#endif
 
-#define PLUGIN_VERSION "2.3.0"
+#define PLUGIN_VERSION "2.3.1"
 
 #ifdef GetPrivateProfileInt
 #undef GetPrivateProfileInt
@@ -102,19 +106,27 @@ void PluginConfig();
 
 void GetFilePaths()
 {
-	// find the winamp.ini for the Winamp install being used
-	ini_file = (wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETINIFILEW);
-	lstrcpyn(szWaveCacheDir, (wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETINIDIRECTORYW), ARRAYSIZE(szWaveCacheDir));
+	if (!ini_file)
+	{
+		// find the winamp.ini for the Winamp install being used
+#ifdef WACUP_BUILD
+		ini_file = (wchar_t *)get_paths()->winamp_ini_file;
+		lstrcpyn(szWaveCacheDir, get_paths()->settings_dir, ARRAYSIZE(szWaveCacheDir));
+#else
+		ini_file = (wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETINIFILEW);
+		lstrcpyn(szWaveCacheDir, (wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETINIDIRECTORYW), ARRAYSIZE(szWaveCacheDir));
+#endif
 
-	// make the cache folder in the user's settings folder e.g. %APPDATA%\Winamp\Plugins\wavecache
-	// which will better ensure that the cache will be correctly generated though it will fallback
-	// to %PROGRAMFILES(x86)%\Winamp\Plugins\wavecache or %PROGRAMFILES%\Winamp\Plugins\wavecache
-	// as applicable to the Windows and Winamp version being used (more so with pre v5.11 clients)
-	PathAppend(szWaveCacheDir, L"Plugins\\wavecache");
-	CreateDirectory(szWaveCacheDir, NULL);
+		// make the cache folder in the user's settings folder e.g. %APPDATA%\Winamp\Plugins\wavecache
+		// which will better ensure that the cache will be correctly generated though it will fallback
+		// to %PROGRAMFILES(x86)%\Winamp\Plugins\wavecache or %PROGRAMFILES%\Winamp\Plugins\wavecache
+		// as applicable to the Windows and Winamp version being used (more so with pre v5.11 clients)
+		PathAppend(szWaveCacheDir, L"Plugins\\wavecache");
+		CreateDirectory(szWaveCacheDir, NULL);
 
-	// find the correct Winamp\Plugins folder (using native api before making a good guess at it)
-	szDLLPath = (wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETPLUGINDIRECTORYW);
+		// find the correct Winamp\Plugins folder (using native api before making a good guess at it)
+		szDLLPath = (wchar_t *)SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GETPLUGINDIRECTORYW);
+	}
 }
 
 int GetFileInfo(const bool unicode, char* szFn, char szFile[MAX_PATH])
@@ -1216,6 +1228,11 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 		}
 		else if (lParam == IPC_PLAYING_FILEW)
 		{
+			// we can sometimes see this message before the following
+			// delay load message so we need to ensure that the paths
+			// are setup correctly otherwise we get wrongly located
+			// waveseek_in_*.dll in the music folders loaded from :(
+			GetFilePaths();
 			ProcessFilePlayback((const wchar_t*)wParam, TRUE);
 		}
 		else if (lParam == delay_load)
@@ -1347,10 +1364,13 @@ LRESULT CALLBACK WinampHookWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 int PluginInit() 
 {
-	/*WASABI_API_SVC = GetServiceAPIPtr();/*/
+#ifdef WACUP_BUILD
+	WASABI_API_SVC = GetServiceAPIPtr();
+#else
 	// load all of the required wasabi services from the winamp client
 	WASABI_API_SVC = reinterpret_cast<api_service*>(SendMessage(plugin.hwndParent, WM_WA_IPC, 0, IPC_GET_API_SERVICE));
-	if (WASABI_API_SVC == reinterpret_cast<api_service*>(1)) WASABI_API_SVC = NULL;/**/
+	if (WASABI_API_SVC == reinterpret_cast<api_service*>(1)) WASABI_API_SVC = NULL;
+#endif
 	if (WASABI_API_SVC != NULL)
 	{
 		ServiceBuild(WASABI_API_SVC, WASABI_API_LNG, languageApiGUID);
